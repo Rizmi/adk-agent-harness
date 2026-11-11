@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-zinc-950 text-zinc-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADK Agent Harness</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    // Suppress Tailwind Play CDN development notice in console
+    const _origWarn = console.warn;
+    console.warn = function(...args) {
+      if (typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com')) return;
+      return _origWarn.apply(console, args);
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Geist', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            mono: ['Geist Mono', 'JetBrains Mono', 'ui-monospace', 'monospace']
+          },
+          colors: {
+            zinc: {
+              850: '#18181b',
+              900: '#111114',
+              925: '#0d0d10',
+              950: '#09090b',
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="/static/marked.min.js"></script>
+  <style>
+    /* ── Technical Brutalism: Absolute 0px Radius Reset & Flat Geometry ── */
+    *, *::before, *::after {
+      border-radius: 0 !important;
+      box-shadow: none !important;
+    }
+
+    summary::-webkit-details-marker {
+      display: none !important;
+    }
+    summary {
+      list-style: none !important;
+    }
+
+    body, button, input, select, textarea {
+      font-family: 'Geist', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background-color: #09090b;
+      color: #e4e4e7;
+    }
+
+    code, pre, .font-mono, [class*="font-mono"], .badge, .status-tag {
+      font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace !important;
+    }
+
+    /* ── Minimalist Sharp Technical Scrollbars ── */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #09090b;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #27272a;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #3f3f46;
+    }
+
+    /* ── Markdown Engine Styling ── */
+    .markdown-body {
+      font-family: 'Geist', sans-serif;
+      color: #e4e4e7;
+    }
+    .markdown-body p { margin-bottom: 0.6em; }
+    .markdown-body p:last-child { margin-bottom: 0; }
+    .markdown-body pre {
+      background: #000000;
+      border: 1px solid #27272a;
+      padding: 0.75rem 1rem;
+      margin: 0.6em 0;
+      overflow-x: auto;
+      font-family: 'Geist Mono', monospace;
+      font-size: 0.8rem;
+      line-height: 1.5;
+      color: #d4d4d8;
+    }
+    .markdown-body code:not(pre code) {
+      background: #141416;
+      border: 1px solid #27272a;
+      padding: 0.12rem 0.35rem;
+      font-family: 'Geist Mono', monospace;
+      font-size: 0.85em;
+      color: #38bdf8;
+    }
+    .markdown-body ul, .markdown-body ol { margin: 0.5em 0 0.5em 1.25em; }
+    .markdown-body ul { list-style-type: square; }
+    .markdown-body ol { list-style-type: decimal; }
+    .markdown-body li { margin-bottom: 0.25em; }
+    .markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4 {
+      font-weight: 700;
+      margin-top: 1em;
+      margin-bottom: 0.4em;
+      color: #f4f4f5;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .markdown-body h1 { font-size: 1.15em; border-bottom: 1px solid #27272a; padding-bottom: 0.3em; }
+    .markdown-body h2 { font-size: 1.05em; }
+    .markdown-body h3 { font-size: 0.95em; }
+    .markdown-body blockquote { border-left: 2px solid #52525b; padding-left: 0.75em; margin: 0.6em 0; color: #a1a1aa; font-style: normal; }
+    .markdown-body table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.8rem; font-family: 'Geist Mono', monospace; }
+    .markdown-body th, .markdown-body td { border: 1px solid #27272a; padding: 0.45rem 0.75rem; text-align: left; }
+    .markdown-body th { background: #111114; font-weight: 700; color: #a1a1aa; text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.05em; }
+    .markdown-body td { background: #09090b; color: #e4e4e7; }
+    .markdown-body a { color: #38bdf8; text-decoration: underline; text-underline-offset: 2px; }
+  </style>
+</head>
+<body class="h-full flex flex-col overflow-hidden bg-zinc-950 text-zinc-100 select-none">
+
+  <!-- ── Top Header Bar (Industrial Brutalist Operations Strip) ── -->
+  <header class="h-11 border-b border-zinc-800 bg-zinc-950 flex items-center z-30 select-none flex-shrink-0">
+    <!-- Left Column (matches Sidebar width: w-64 sm:w-72) -->
+    <div class="w-auto sm:w-72 flex-shrink-0 flex items-center px-3 sm:border-r border-zinc-800 h-full">
+      <div class="flex items-center gap-2">
+        <!-- Sharp Geometric Logo Icon -->
+        <div class="w-6 h-6 bg-zinc-900 border border-zinc-700/80 flex items-center justify-center flex-shrink-0">
+          <svg class="w-3.5 h-3.5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <span class="font-sans text-xs font-bold tracking-wider text-zinc-100 uppercase">ADK AGENT HARNESS</span>
+      </div>
+    </div>
+
+    <!-- Right / Second Column Strip: flex-1 (matches Chat View width) -->
+    <div class="flex-1 flex items-center justify-between px-3 h-full relative">
+      <!-- Centered Cluster: Agent Connected, Model Selector, Reset Chat (centered to 2nd column) -->
+      <div class="flex items-center gap-1.5 sm:gap-2 sm:absolute sm:left-1/2 sm:-translate-x-1/2 z-10">
+        <!-- Agent Connected Badge -->
+        <div class="hidden sm:flex items-center gap-1.5 border border-zinc-800 bg-zinc-900/60 px-2.5 py-1 text-[11px] font-mono text-zinc-300">
+          <span id="server-status-dot" class="w-1.5 h-1.5 bg-emerald-400 inline-block animate-pulse"></span>
+          <span id="server-status-text">Agent: Connected</span>
+        </div>
+
+        <!-- Active Model Switcher -->
+        <div class="flex items-center border border-zinc-800 bg-zinc-900/60 text-[11px] font-mono text-zinc-300 px-2.5 py-1 gap-1.5">
+          <i class="fa-solid fa-microchip text-zinc-400 text-[10px]"></i>
+          <span class="text-zinc-500 uppercase text-[10px]">Model:</span>
+          <select id="model-select" class="bg-transparent text-zinc-200 font-mono text-[11px] focus:outline-none cursor-pointer border-0 p-0 pr-1">
+            <option value="" disabled selected>Loading...</option>
+          </select>
+        </div>
+
+        <!-- Reset Chat Button -->
+        <button id="reset-chat-btn" class="flex items-center gap-1.5 border border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800 text-[11px] font-mono text-zinc-300 px-2.5 py-1 transition cursor-pointer" title="Reset active conversation">
+          <i class="fa-solid fa-arrows-rotate text-[10px] text-zinc-400"></i>
+          <span>Reset Chat</span>
+        </button>
+      </div>
+
+      <!-- Right Controls: Standalone Refresh & Session ID Badge -->
+      <div class="flex items-center gap-2 ml-auto">
+        <!-- Standalone Refresh Button -->
+        <button id="refresh-page-btn" class="w-7 h-7 border border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 flex items-center justify-center transition cursor-pointer" title="Refresh state">
+          <i class="fa-solid fa-rotate text-xs"></i>
+        </button>
+
+        <!-- Session ID Badge -->
+        <div id="session-id-badge" class="hidden md:flex items-center gap-1 border border-zinc-800 bg-zinc-900/40 px-2 py-1 text-[10px] font-mono text-zinc-500">
+          <span>ID:</span>
+          <span id="active-session-id" class="text-zinc-400 font-semibold truncate max-w-[130px]">ses_...</span>
+        </div>
+
+        <!-- Toggle Sessions Panel (Mobile) -->
+        <button id="toggle-sidebar-btn" class="sm:hidden border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs text-zinc-400 hover:text-zinc-200">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Main Workspace Frame ── -->
+  <div class="flex-1 flex overflow-hidden relative">
+
+    <!-- ── Left Sidebar (Sessions Archive & Scope) ── -->
+    <aside id="sidebar" class="w-64 sm:w-72 border-r border-zinc-800 bg-zinc-950 flex flex-col z-20 flex-shrink-0 fixed sm:relative inset-y-0 left-0 transform -translate-x-full sm:translate-x-0 transition-transform duration-150">
+      <!-- Sidebar Header -->
+      <div class="p-2 border-b border-zinc-800 bg-zinc-925 flex items-center justify-between">
+        <span class="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+          <i class="fa-solid fa-layer-group text-zinc-500 text-[9px]"></i>
+          Sessions
+        </span>
+        <button id="new-chat-btn" class="px-2 py-0.5 text-[10px] font-mono font-bold border border-zinc-700 bg-zinc-850 hover:bg-zinc-800 text-zinc-200 uppercase tracking-wider transition">
+          + New
+        </button>
+      </div>
+
+      <!-- Agent Selector -->
+      <div class="p-2 border-b border-zinc-800 bg-zinc-950 space-y-1">
+        <label class="text-[9px] font-mono font-semibold text-zinc-500 uppercase tracking-wider block">Agent Scope</label>
+        <select id="agent-select" class="w-full text-[11px] font-mono bg-zinc-900 border border-zinc-800 py-1 px-2 text-zinc-300 focus:outline-none focus:border-zinc-600 cursor-pointer">
+          <option value="assistant" selected>assistant</option>
+        </select>
+      </div>
+
+      <!-- Sessions List -->
+      <div class="flex-1 overflow-y-auto p-1.5 space-y-1 select-none" id="session-list">
+        <div class="p-3 text-center text-[11px] font-mono text-zinc-600">No sessions recorded.</div>
+      </div>
+
+      <!-- Mobile Close -->
+      <div class="p-2 border-t border-zinc-800 sm:hidden">
+        <button id="close-sidebar-btn" class="w-full py-1 text-xs font-mono border border-zinc-800 bg-zinc-900 text-zinc-400 uppercase">Close</button>
+      </div>
+    </aside>
+
+    <!-- Overlay for mobile sidebar -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black/70 z-10 hidden sm:hidden"></div>
+
+    <!-- ── Center / Right Chat View ── -->
+    <section class="flex-1 flex flex-col h-full bg-zinc-950 overflow-hidden relative">
+
+      <!-- Chat Column Header Bar (Matches Exact Screenshot Layout) -->
+      <div class="h-9 border-b border-zinc-800 bg-zinc-950 flex items-center justify-between px-3 select-none flex-shrink-0">
+        <!-- Left: Agent Title -->
+        <div class="flex items-center gap-2 text-xs font-mono">
+          <span class="text-emerald-400 text-xs">■</span>
+          <span id="chat-panel-title" class="font-bold text-zinc-100 uppercase tracking-wide">ADK Agent</span>
+        </div>
+
+        <!-- Right: Real-time Context Token Meter -->
+        <div id="token-badge" class="flex items-center gap-1.5 text-xs font-mono text-emerald-400 select-none cursor-help" title="Context Token Meter">
+          <i class="fa-solid fa-bolt text-emerald-400 text-xs"></i>
+          <span id="token-text">Context: 0 / 128k</span>
+        </div>
+      </div>
+
+      <!-- Horizontal Session Tabs Strip (Matches "■ Chat 2" Pill in Screenshot) -->
+      <div class="h-8 border-b border-zinc-800 bg-zinc-925 flex items-center px-3 gap-1.5 overflow-x-auto select-none flex-shrink-0" id="chat-tabs-bar">
+        <!-- Rendered dynamically: e.g. [■ Chat 2] [■ Chat 1] [+ New] -->
+      </div>
+
+      <!-- Messages Stream -->
+      <div id="chat-messages" class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 select-text">
+        <!-- Welcome Terminal Notice -->
+        <div id="welcome-card" class="border border-zinc-800 bg-zinc-900/40 p-4 max-w-2xl mx-auto space-y-2.5 font-mono text-xs">
+          <div class="flex items-center gap-2 text-zinc-300 font-bold uppercase tracking-wider text-[11px] border-b border-zinc-850 pb-2">
+            <i class="fa-solid fa-terminal text-emerald-400"></i>
+            ADK Headless Agent Runtime Ready
+          </div>
+          <p class="text-zinc-400 text-[11px] leading-relaxed font-sans">
+            Minimalist technical console for autonomous tool-calling agents. Zero purple, zero rounded corners, 100% precision brutalist UI.
+          </p>
+          <div class="pt-1 flex flex-wrap gap-1.5 font-mono text-[10px]">
+            <button class="quick-prompt px-2 py-1 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-zinc-300 transition text-left cursor-pointer">
+              > List workspace files
+            </button>
+            <button class="quick-prompt px-2 py-1 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-zinc-300 transition text-left cursor-pointer">
+              > Read memory summary
+            </button>
+            <button class="quick-prompt px-2 py-1 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-zinc-300 transition text-left cursor-pointer">
+              > List registered skills
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Input Strip (Sharp Rectangular Bar) -->
+      <div class="border-t border-zinc-800 bg-zinc-950 p-3 flex-shrink-0">
+        <form id="chat-form" class="max-w-4xl mx-auto space-y-2">
+          <div class="border border-zinc-800 bg-zinc-900 focus-within:border-zinc-600 transition">
+            <textarea
+              id="prompt-input"
+              rows="2"
+              placeholder="Enter instruction or message... (Enter to send, Shift+Enter for newline)"
+              class="w-full bg-transparent text-xs text-zinc-100 placeholder-zinc-600 p-3 focus:outline-none resize-none font-mono"
+            ></textarea>
+            <div class="px-3 py-1.5 border-t border-zinc-850 flex items-center justify-between text-[10px] font-mono text-zinc-500 bg-black/40">
+              <span id="char-counter">0 chars</span>
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  id="abort-btn"
+                  class="hidden px-2.5 py-1 bg-rose-950/60 hover:bg-rose-900 border border-rose-800 text-rose-300 text-[10px] font-mono uppercase tracking-wider font-bold transition flex items-center gap-1 cursor-pointer"
+                >
+                  <i class="fa-solid fa-stop text-[9px]"></i> Stop
+                </button>
+                <button
+                  type="submit"
+                  id="send-btn"
+                  class="px-3.5 py-1 bg-zinc-100 hover:bg-white text-zinc-950 text-[11px] font-mono uppercase font-bold tracking-wider transition flex items-center gap-1 cursor-pointer disabled:opacity-40"
+                >
+                  <span>Send</span>
+                  <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+
+    </section>
+  </div>
+
+  <!-- Industrial Notification Toast -->
+  <div id="toast" class="fixed bottom-4 right-4 px-3 py-2 bg-zinc-900 border border-zinc-800 text-[11px] font-mono text-zinc-200 shadow-none transition-all duration-200 transform translate-y-12 opacity-0 pointer-events-none z-50 flex items-center gap-2">
+    <i id="toast-icon" class="fa-solid fa-check text-emerald-400"></i>
+    <span id="toast-msg">Status</span>
+  </div>
+
+  <script>
+    // -------------------------------------------------------------------------
+    // Application State
+    // -------------------------------------------------------------------------
+    const state = {
+      sessions: [],
+      activeSessionId: null,
+      activeAgent: 'assistant',
+      activeModel: '',
+      isGenerating: false,
+      abortController: null,
+      sessionUsageMap: new Map(),
+    };
+
+    const DOM = {
+      sidebar: document.getElementById('sidebar'),
+      sidebarOverlay: document.getElementById('sidebar-overlay'),
+      toggleSidebarBtn: document.getElementById('toggle-sidebar-btn'),
+      closeSidebarBtn: document.getElementById('close-sidebar-btn'),
+      newChatBtn: document.getElementById('new-chat-btn'),
+      resetChatBtn: document.getElementById('reset-chat-btn'),
+      refreshPageBtn: document.getElementById('refresh-page-btn'),
+      modelSelect: document.getElementById('model-select'),
+      agentSelect: document.getElementById('agent-select'),
+      sessionList: document.getElementById('session-list'),
+      activeSessionId: document.getElementById('active-session-id'),
+      chatPanelTitle: document.getElementById('chat-panel-title'),
+      chatTabsBar: document.getElementById('chat-tabs-bar'),
+      tokenBadge: document.getElementById('token-badge'),
+      tokenText: document.getElementById('token-text'),
+      chatMessages: document.getElementById('chat-messages'),
+      welcomeCard: document.getElementById('welcome-card'),
+      chatForm: document.getElementById('chat-form'),
+      promptInput: document.getElementById('prompt-input'),
+      sendBtn: document.getElementById('send-btn'),
+      abortBtn: document.getElementById('abort-btn'),
+      charCounter: document.getElementById('char-counter'),
+      toast: document.getElementById('toast'),
+      toastMsg: document.getElementById('toast-msg'),
+      toastIcon: document.getElementById('toast-icon'),
+    };
+
+    function showToast(msg, isError = false) {
+      DOM.toastMsg.textContent = msg;
+      DOM.toastIcon.className = isError ? 'fa-solid fa-triangle-exclamation text-rose-400' : 'fa-solid fa-check text-emerald-400';
+      DOM.toast.classList.remove('translate-y-12', 'opacity-0');
+      DOM.toast.classList.add('translate-y-0', 'opacity-100');
+      setTimeout(() => {
+        DOM.toast.classList.remove('translate-y-0', 'opacity-100');
+        DOM.toast.classList.add('translate-y-12', 'opacity-0');
+      }, 2800);
+    }
+
+    function formatNumber(num) {
+      if (!num || num <= 0) return '0';
+      if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+      if (num >= 1000) return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+      return String(num);
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // -------------------------------------------------------------------------
+    // Context Token Badge Update (Matches "⚡ Context: 20.7k / 128k")
+    // -------------------------------------------------------------------------
+    function updateTokenBadge(usage) {
+      if (!usage || (!usage.contextTokens && !usage.totalTokens)) {
+        DOM.tokenText.textContent = 'Context: 0 / 128k';
+        DOM.tokenBadge.className = 'flex items-center gap-1.5 text-xs font-mono text-zinc-500 select-none cursor-help';
+        DOM.tokenBadge.title = 'No token usage recorded yet for this session.';
+        return;
+      }
+
+      const ctx = Number(usage.contextTokens) || 0;
+      const limit = Number(usage.contextLimit) || 128000;
+      const pct = limit > 0 ? Math.min(100, Math.round((ctx / limit) * 100)) : 0;
+      const limitText = limit > 0 ? formatNumber(limit) : '128k';
+
+      DOM.tokenText.textContent = `Context: ${formatNumber(ctx)} / ${limitText}`;
+
+      let colorClass = 'text-emerald-400';
+      if (pct >= 80) {
+        colorClass = 'text-rose-400';
+      } else if (pct >= 60) {
+        colorClass = 'text-amber-400';
+      }
+
+      DOM.tokenBadge.className = `flex items-center gap-1.5 text-xs font-mono select-none cursor-help transition ${colorClass}`;
+
+      DOM.tokenBadge.title = [
+        `Active Context: ${ctx.toLocaleString()} / ${limit.toLocaleString()} tokens (${pct}%)`,
+        `Compaction Threshold: 75%`,
+        `----------------------------------------`,
+        `Cumulative Prompt: ${(usage.promptTokens || 0).toLocaleString()} tokens`,
+        `Cumulative Output: ${(usage.candidatesTokens || 0).toLocaleString()} tokens`,
+        `Cumulative Total:  ${(usage.totalTokens || 0).toLocaleString()} tokens`,
+      ].join('\n');
+    }
+
+    // -------------------------------------------------------------------------
+    // Server Endpoints
+    // -------------------------------------------------------------------------
+    async function loadServerInfo() {
+      try {
+        const res = await fetch('/api/info');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        state.activeModel = data.model || '';
+      } catch (err) {
+        document.getElementById('server-status-dot').className = 'w-1.5 h-1.5 bg-rose-500 inline-block';
+        document.getElementById('server-status-text').textContent = 'Agent: Offline';
+      }
+    }
+
+    async function loadModels() {
+      try {
+        const res = await fetch('/api/model');
+        if (!res.ok) return;
+        const data = await res.json();
+        DOM.modelSelect.innerHTML = '';
+        state.activeModel = data.current || state.activeModel;
+
+        (data.groups || []).forEach(group => {
+          const optgroup = document.createElement('optgroup');
+          optgroup.label = (group.provider || 'Models').toUpperCase();
+          (group.models || []).forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            const isConfigured = m.configured !== false;
+            if (!isConfigured && m.missing_vars && m.missing_vars.length > 0) {
+              opt.textContent = `${m.name} [Requires ${m.missing_vars.join(', ')}]`;
+              opt.disabled = true;
+            } else {
+              opt.textContent = m.name;
+            }
+            if (m.id === state.activeModel) opt.selected = true;
+            optgroup.appendChild(opt);
+          });
+          DOM.modelSelect.appendChild(optgroup);
+        });
+      } catch (err) {
+        console.warn('Model fetch error:', err);
+      }
+    }
+
+    async function loadAgents() {
+      try {
+        const res = await fetch('/api/agents');
+        if (!res.ok) return;
+        const data = await res.json();
+        DOM.agentSelect.innerHTML = '';
+        const agents = data.agents || [];
+        agents.forEach(a => {
+          const opt = document.createElement('option');
+          opt.value = a.name;
+          opt.textContent = `${a.name.toUpperCase()} (${a.tools.length} TOOLS)`;
+          if (a.name === state.activeAgent) opt.selected = true;
+          DOM.agentSelect.appendChild(opt);
+        });
+        if (agents.length > 0 && !agents.some(a => a.name === state.activeAgent)) {
+          state.activeAgent = agents[0].name;
+        }
+        updateActiveSessionHeader();
+      } catch (err) {
+        console.warn('Agent fetch error:', err);
+      }
+    }
+
+    async function switchModel(modelId) {
+      try {
+        const res = await fetch('/api/model', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: modelId }),
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || `Model switch failed (${res.status})`);
+        }
+        const data = await res.json();
+        state.activeModel = data.model;
+        showToast(`Model: ${data.label || data.model}`);
+      } catch (err) {
+        showToast(err.message, true);
+        await loadModels();
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // Session State & Horizontal Tabs Strip (Ryoku / Brutalist Pattern)
+    // -------------------------------------------------------------------------
+    function saveSessions() {
+      localStorage.setItem('adk_sessions', JSON.stringify(state.sessions));
+      localStorage.setItem('adk_active_session', state.activeSessionId || '');
+    }
+
+    function renderTabsBar() {
+      DOM.chatTabsBar.innerHTML = '';
+      state.sessions.forEach(sess => {
+        const isActive = sess.id === state.activeSessionId;
+        const tab = document.createElement('button');
+        tab.className = `px-2.5 py-1 text-xs font-mono border flex items-center gap-1.5 transition cursor-pointer flex-shrink-0 ${
+          isActive
+            ? 'bg-zinc-900 border-zinc-700 text-zinc-100 font-bold'
+            : 'bg-transparent border-transparent text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/60'
+        }`;
+        tab.innerHTML = `
+          <span class="${isActive ? 'text-emerald-400' : 'text-zinc-600'} text-[10px]">■</span>
+          <span class="truncate max-w-[120px]">${escapeHtml(sess.title || 'Chat')}</span>
+        `;
+        tab.addEventListener('click', () => switchToSession(sess.id));
+        DOM.chatTabsBar.appendChild(tab);
+      });
+
+      // Quick "+" New Tab Button
+      const newTabBtn = document.createElement('button');
+      newTabBtn.className = 'px-2 py-1 text-xs font-mono text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/80 border border-transparent hover:border-zinc-800 transition cursor-pointer flex items-center gap-1 flex-shrink-0';
+      newTabBtn.innerHTML = '<i class="fa-solid fa-plus text-[10px]"></i>';
+      newTabBtn.title = 'New Chat Session';
+      newTabBtn.addEventListener('click', () => createNewSession());
+      DOM.chatTabsBar.appendChild(newTabBtn);
+    }
+
+    function renderSessionList() {
+      DOM.sessionList.innerHTML = '';
+      if (!state.sessions.length) {
+        DOM.sessionList.innerHTML = '<div class="p-3 text-center text-[10px] font-mono text-zinc-600 uppercase">No sessions</div>';
+        return;
+      }
+
+      state.sessions.forEach(sess => {
+        const isActive = sess.id === state.activeSessionId;
+        const item = document.createElement('div');
+        item.className = `group flex items-center justify-between p-2 border cursor-pointer font-mono text-[11px] transition ${
+          isActive
+            ? 'bg-zinc-900 border-zinc-700 text-zinc-100 font-bold'
+            : 'bg-zinc-950 border-zinc-850 text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
+        }`;
+
+        item.innerHTML = `
+          <div class="flex items-center gap-2 truncate mr-2 flex-1">
+            <span class="${isActive ? 'text-emerald-400' : 'text-zinc-600'}">■</span>
+            <span class="truncate">${escapeHtml(sess.title || 'Chat')}</span>
+          </div>
+          <button class="delete-btn opacity-0 group-hover:opacity-100 px-1 py-0.5 hover:text-rose-400 text-zinc-500 transition cursor-pointer" title="Delete">
+            <i class="fa-solid fa-trash text-[9px]"></i>
+          </button>
+        `;
+
+        item.addEventListener('click', (e) => {
+          if (e.target.closest('.delete-btn')) return;
+          switchToSession(sess.id);
+        });
+
+        item.querySelector('.delete-btn').addEventListener('click', (e) => {
+          e.stopPropagation();
+          deleteSession(sess.id);
+        });
+
+        DOM.sessionList.appendChild(item);
+      });
+    }
+
+    async function createNewSession(title = 'Chat') {
+      try {
+        const res = await fetch('/api/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agent: state.activeAgent, title }),
+        });
+        if (!res.ok) throw new Error('Session creation failed');
+        const data = await res.json();
+        const num = state.sessions.length + 1;
+        const newSess = {
+          id: data.id,
+          title: title === 'Chat' ? `Chat ${num}` : title,
+          agent: state.activeAgent,
+          createdAt: Date.now(),
+        };
+        state.sessions.unshift(newSess);
+        state.activeSessionId = newSess.id;
+        saveSessions();
+        renderSessionList();
+        renderTabsBar();
+        updateActiveSessionHeader();
+        clearChatUI();
+        showToast(`Created ${newSess.title}`);
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    async function deleteSession(sessionId) {
+      try {
+        const sess = state.sessions.find(s => s.id === sessionId);
+        const agentName = sess ? sess.agent : state.activeAgent;
+        await fetch(`/api/session/${encodeURIComponent(sessionId)}?agent=${encodeURIComponent(agentName)}`, {
+          method: 'DELETE',
+        });
+      } catch (e) {
+        console.warn('Delete session error:', e);
+      }
+
+      state.sessions = state.sessions.filter(s => s.id !== sessionId);
+      if (state.activeSessionId === sessionId) {
+        if (state.sessions.length > 0) {
+          switchToSession(state.sessions[0].id);
+        } else {
+          createNewSession();
+        }
+      } else {
+        saveSessions();
+        renderSessionList();
+        renderTabsBar();
+      }
+    }
+
+    function switchToSession(sessionId) {
+      if (state.isGenerating) {
+        showToast('Turn currently executing. Stop generation first.', true);
+        return;
+      }
+      state.activeSessionId = sessionId;
+      saveSessions();
+      renderSessionList();
+      renderTabsBar();
+      updateActiveSessionHeader();
+      loadSessionMessages(sessionId);
+      if (window.innerWidth < 640) toggleSidebar(false);
+    }
+
+    function updateActiveSessionHeader() {
+      const sess = state.sessions.find(s => s.id === state.activeSessionId);
+      const agentDisplayName = sess && sess.agent ? sess.agent : state.activeAgent;
+      DOM.chatPanelTitle.textContent = `${agentDisplayName.replace(/_/g, ' ')} Agent`;
+      DOM.activeSessionId.textContent = state.activeSessionId || 'None';
+      const usage = state.sessionUsageMap.get(state.activeSessionId);
+      updateTokenBadge(usage);
+    }
+
+    function clearChatUI() {
+      DOM.chatMessages.innerHTML = '';
+      DOM.chatMessages.appendChild(DOM.welcomeCard);
+      DOM.welcomeCard.classList.remove('hidden');
+    }
+
+    // -------------------------------------------------------------------------
+    // Exact Technical Brutalist Message & Tool Components (Matches Screenshot)
+    // -------------------------------------------------------------------------
+    function createMessageBubble(role) {
+      DOM.welcomeCard.classList.add('hidden');
+      const isUser = role === 'user';
+      const container = document.createElement('div');
+
+      if (isUser) {
+        // User message box: Rectangular border, YOU header, clean text
+        container.className = 'border border-zinc-800 bg-zinc-900/40 p-4 mb-4 select-text';
+        container.innerHTML = `
+          <div class="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-wider mb-2">
+            YOU
+          </div>
+          <div class="text-xs sm:text-[13px] text-zinc-200 whitespace-pre-wrap font-sans leading-relaxed text-content"></div>
+        `;
+        const textContent = container.querySelector('.text-content');
+        DOM.chatMessages.appendChild(container);
+        DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight;
+
+        return {
+          container,
+          setText(txt) { textContent.textContent = txt; },
+        };
+      }
+
+      // Assistant message container
+      container.className = 'mb-5 space-y-2 select-text';
+      const agentLabel = (state.activeAgent || 'assistant').toUpperCase() + ' AGENT';
+      container.innerHTML = `
+        <div class="flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-wider mb-2 select-none">
+          <span class="text-emerald-400 font-bold">>_</span>
+          <span class="text-zinc-400 font-bold agent-name-tag">${escapeHtml(agentLabel)}</span>
+        </div>
+        <div class="reasoning-slot"></div>
+        <div class="tools-slot"></div>
+        <div class="markdown-body text-xs sm:text-[13px] leading-relaxed text-zinc-200 pt-1 text-content"></div>
+      `;
+
+      const reasoningSlot = container.querySelector('.reasoning-slot');
+      const toolsSlot = container.querySelector('.tools-slot');
+      const textContent = container.querySelector('.text-content');
+
+      DOM.chatMessages.appendChild(container);
+      DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight;
+
+      let rawText = '';
+      let rawReasoning = '';
+      let reasoningDetails = null;
+      let reasoningBody = null;
+
+      let toolsContainer = null;
+      let toolsList = null;
+      let toolCountLabel = null;
+      let toolStatusBadge = null;
+      const toolCardsMap = new Map();
+
+      return {
+        container,
+        appendDelta(chunk) {
+          rawText += chunk;
+          if (window.marked) {
+            textContent.innerHTML = marked.parse(rawText);
+          } else {
+            textContent.textContent = rawText;
+          }
+          DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight;
+        },
+        appendReasoning(chunk) {
+          rawReasoning += chunk;
+          if (!reasoningDetails) {
+            reasoningDetails = document.createElement('details');
+            reasoningDetails.className = 'group border border-zinc-800 bg-zinc-900/60 text-xs font-mono select-none mb-2';
+            reasoningDetails.innerHTML = `
+              <summary class="px-3 py-2 flex items-center justify-between cursor-pointer select-none text-zinc-300 hover:text-zinc-100 hover:bg-zinc-850/50 transition">
+                <div class="flex items-center gap-2">
+                  <i class="fa-solid fa-brain text-zinc-400 text-xs"></i>
+                  <span class="font-medium text-zinc-300">Thought process</span>
+                </div>
+                <i class="fa-solid fa-chevron-right text-[9px] text-zinc-500 transition-transform duration-150 group-open:rotate-90"></i>
+              </summary>
+              <div class="reasoning-body px-3 py-2.5 border-t border-zinc-800 text-zinc-400 font-mono text-xs whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto bg-black/60 select-text"></div>
+            `;
+            reasoningBody = reasoningDetails.querySelector('.reasoning-body');
+            reasoningSlot.appendChild(reasoningDetails);
+          }
+          reasoningBody.textContent = rawReasoning;
+          DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight;
+        },
+        setText(txt) {
+          rawText = txt;
+          if (window.marked) {
+            textContent.innerHTML = marked.parse(txt);
+          } else {
+            textContent.textContent = txt;
+          }
+        },
+        updateTool(toolData) {
+          const callId = toolData.callId || toolData.tool || Math.random().toString();
+          toolCardsMap.set(callId, toolData);
+
+          if (!toolsContainer) {
+            toolsContainer = document.createElement('details');
+            toolsContainer.className = 'group border border-zinc-800 bg-zinc-900/60 text-xs font-mono select-none mb-2';
+            toolsContainer.open = true;
+            toolsContainer.innerHTML = `
+              <summary class="px-3 py-2 flex items-center justify-between cursor-pointer select-none text-zinc-300 hover:text-zinc-100 hover:bg-zinc-850/50 transition">
+                <div class="flex items-center gap-2">
+                  <i class="fa-solid fa-screwdriver-wrench text-zinc-400 text-xs"></i>
+                  <span class="font-bold text-zinc-200 tool-count-label">Tool execution (0)</span>
+                  <span class="text-[11px] text-zinc-500 font-mono tool-status-badge"></span>
+                </div>
+                <i class="fa-solid fa-chevron-right text-[9px] text-zinc-500 transition-transform duration-150 group-open:rotate-90"></i>
+              </summary>
+              <div class="tools-list p-2 space-y-1.5 border-t border-zinc-800 max-h-72 overflow-y-auto bg-black/40"></div>
+            `;
+            toolCountLabel = toolsContainer.querySelector('.tool-count-label');
+            toolStatusBadge = toolsContainer.querySelector('.tool-status-badge');
+            toolsList = toolsContainer.querySelector('.tools-list');
+            toolsSlot.appendChild(toolsContainer);
+          }
+
+          const tools = Array.from(toolCardsMap.values());
+          const completedCount = tools.filter(t => t.state === 'complete' || t.status === 'completed' || t.status === 'done').length;
+          const runningCount = tools.filter(t => t.state === 'running' || t.status === 'running').length;
+
+          toolCountLabel.textContent = `Tool execution (${tools.length})`;
+          toolStatusBadge.innerHTML = runningCount > 0
+            ? `<span class="text-amber-400 font-mono text-[11px] animate-pulse">(${runningCount} running...)</span>`
+            : `<span class="text-zinc-500 font-mono text-[11px]">(${completedCount}/${tools.length} completed)</span>`;
+
+          // Re-render individual tool card
+          let card = toolsList.querySelector(`[data-tool-call="${callId}"]`);
+          if (!card) {
+            card = document.createElement('details');
+            card.dataset.toolCall = callId;
+            card.className = 'group bg-zinc-950 border border-zinc-800 text-[10px] font-mono';
+            toolsList.appendChild(card);
+          }
+
+          const tName = toolData.tool || toolData.name || 'tool';
+          const isComplete = toolData.state === 'complete' || toolData.status === 'completed' || toolData.status === 'done';
+          const statusText = isComplete ? 'done' : 'running...';
+          const statusBadge = isComplete
+            ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/60'
+            : 'bg-amber-950/60 text-amber-400 border border-amber-800/60 animate-pulse';
+
+          const inputStr = toolData.input ? (typeof toolData.input === 'string' ? toolData.input : JSON.stringify(toolData.input, null, 2)) : '';
+          const outputStr = toolData.output !== undefined && toolData.output !== null ? (typeof toolData.output === 'string' ? toolData.output : JSON.stringify(toolData.output, null, 2)) : '';
+
+          card.innerHTML = `
+            <summary class="px-2.5 py-1.5 flex items-center justify-between cursor-pointer select-none text-zinc-400 hover:text-zinc-200">
+              <div class="flex items-center gap-2 min-w-0">
+                <i class="fa-solid fa-terminal text-[10px] ${isComplete ? 'text-emerald-400' : 'text-amber-400'}"></i>
+                <span class="text-zinc-200 font-bold">${escapeHtml(tName)}</span>
+                <span class="px-1.5 py-0.2 text-[9px] font-medium font-mono ${statusBadge}">${statusText}</span>
+              </div>
+              <i class="fa-solid fa-chevron-right text-[8px] text-zinc-500 transition-transform duration-150 group-open:rotate-90"></i>
+            </summary>
+            <div class="p-2 border-t border-zinc-800 bg-black/60 space-y-2 select-text">
+              ${inputStr ? `
+                <div>
+                  <span class="text-[9px] uppercase tracking-wider text-zinc-500 font-semibold font-mono block mb-0.5">Parameters:</span>
+                  <pre class="bg-black border border-zinc-800 p-2 text-zinc-300 text-[10px] overflow-x-auto whitespace-pre-wrap">${escapeHtml(inputStr)}</pre>
+                </div>
+              ` : ''}
+              ${outputStr ? `
+                <div>
+                  <span class="text-[9px] uppercase tracking-wider text-zinc-500 font-semibold font-mono block mb-0.5">Output Result:</span>
+                  <pre class="bg-black border border-zinc-800 p-2 text-emerald-300/90 text-[10px] overflow-x-auto whitespace-pre-wrap max-h-48 overflow-y-auto">${escapeHtml(outputStr)}</pre>
+                </div>
+              ` : ''}
+            </div>
+          `;
+          DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight;
+        },
+        showPermission(perm) {
+          const card = document.createElement('div');
+          card.className = 'border border-amber-600/80 bg-zinc-900 p-3 text-[11px] font-mono mb-3';
+          const resources = Array.isArray(perm.resources) ? perm.resources : [];
+
+          card.innerHTML = `
+            <div class="flex items-center gap-2 text-amber-400 font-semibold">
+              <i class="fa-solid fa-shield-halved text-amber-400"></i>
+              <span class="uppercase tracking-wider text-[10px]">Permission Required (Ask Tier)</span>
+            </div>
+            <div class="text-zinc-100 mt-1 font-bold text-xs">${escapeHtml(perm.action || 'Tool Action')}</div>
+            ${resources.length ? `<div class="text-[10px] text-zinc-400 mt-1 font-mono break-all bg-black/60 p-2 border border-zinc-800">${resources.map(r => escapeHtml(r)).join('<br>')}</div>` : ''}
+            <div class="mt-2.5 flex items-center gap-2">
+              <button class="approve-btn px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-semibold uppercase tracking-wider cursor-pointer">Allow</button>
+              <button class="reject-btn px-3 py-1 bg-rose-700 hover:bg-rose-600 text-white font-mono text-xs font-semibold uppercase tracking-wider cursor-pointer">Reject</button>
+              <span class="perm-status text-[10px] text-zinc-400 font-mono ml-2"></span>
+            </div>
+          `;
+
+          const approveBtn = card.querySelector('.approve-btn');
+          const rejectBtn = card.querySelector('.reject-btn');
+          const statusText = card.querySelector('.perm-status');
+
+          const resolveApproval = async (decision) => {
+            approveBtn.disabled = true;
+            rejectBtn.disabled = true;
+            statusText.textContent = decision === 'approved' ? '✓ ALLOWED' : '✗ REJECTED';
+            statusText.className = decision === 'approved' ? 'text-[10px] text-emerald-400 font-mono ml-2 font-bold' : 'text-[10px] text-rose-400 font-mono ml-2 font-bold';
+
+            try {
+              const res = await fetch(`/api/session/${encodeURIComponent(state.activeSessionId)}/approval`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  requestId: perm.requestId,
+                  decision: decision,
+                  sessionId: state.activeSessionId,
+                }),
+              });
+              if (!res.ok) throw new Error('Failed to resolve approval');
+              readSSEStream(res, this);
+            } catch (err) {
+              showToast('Approval resolution failed: ' + err.message, true);
+            }
+          };
+
+          approveBtn.addEventListener('click', () => resolveApproval('approved'));
+          rejectBtn.addEventListener('click', () => resolveApproval('rejected'));
+
+          toolsSlot.appendChild(card);
+          DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight;
+        }
+      };
+    }
+
+    async function loadSessionMessages(sessionId) {
+      clearChatUI();
+      const sess = state.sessions.find(s => s.id === sessionId);
+      const agentName = sess ? sess.agent : state.activeAgent;
+
+      try {
+        const res = await fetch(`/api/session/${encodeURIComponent(sessionId)}/message?agent=${encodeURIComponent(agentName)}`);
+        if (!res.ok) {
+          if (res.status === 404) {
+            // Stale session from localStorage: remove it and ensure a valid session exists
+            state.sessions = state.sessions.filter(s => s.id !== sessionId);
+            if (state.sessions.length > 0) {
+              switchToSession(state.sessions[0].id);
+            } else {
+              await createNewSession('Chat 1');
+            }
+          }
+          return;
+        }
+        const data = await res.json();
+        const entries = data.data || [];
+
+        if (data.usage) {
+          state.sessionUsageMap.set(sessionId, data.usage);
+          updateTokenBadge(data.usage);
+        }
+
+        if (entries.length > 0) {
+          DOM.welcomeCard.classList.add('hidden');
+        }
+
+        entries.forEach(entry => {
+          const role = entry.type === 'assistant' ? 'assistant' : 'user';
+          const bubble = createMessageBubble(role);
+
+          (entry.content || []).forEach(part => {
+            if (part.type === 'text') {
+              bubble.setText(part.text || '');
+            } else if (part.type === 'reasoning') {
+              bubble.appendReasoning(part.text || '');
+            } else if (part.type === 'tool') {
+              bubble.updateTool(part);
+            }
+          });
+        });
+      } catch (err) {
+        console.warn('Failed to load session messages:', err);
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // SSE Stream Consumer
+    // -------------------------------------------------------------------------
+    async function readSSEStream(response, bubble) {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+
+          for (const line of lines) {
+            const clean = line.trim();
+            if (!clean.startsWith('data:')) continue;
+            const jsonStr = clean.slice(5).trim();
+            if (!jsonStr) continue;
+
+            try {
+              const ev = JSON.parse(jsonStr);
+              if (ev.type === 'done') {
+                return;
+              } else if (ev.type === 'delta') {
+                if (ev.field === 'reasoning') {
+                  bubble.appendReasoning(ev.text);
+                } else {
+                  bubble.appendDelta(ev.text);
+                }
+              } else if (ev.type === 'tool') {
+                bubble.updateTool(ev);
+              } else if (ev.type === 'permission') {
+                bubble.showPermission(ev);
+              } else if (ev.type === 'usage') {
+                state.sessionUsageMap.set(state.activeSessionId, ev);
+                updateTokenBadge(ev);
+              } else if (ev.type === 'error') {
+                showToast(ev.error, true);
+              }
+            } catch (jsonErr) {
+              console.warn('SSE parse error:', jsonErr);
+            }
+          }
+        }
+      } catch (streamErr) {
+        if (streamErr.name === 'AbortError') {
+          showToast('Turn aborted by user');
+        } else {
+          showToast('Stream error: ' + streamErr.message, true);
+        }
+      }
+    }
+
+    async function sendPrompt(text) {
+      if (!text || !text.trim() || state.isGenerating) return;
+
+      if (!state.activeSessionId) {
+        await createNewSession(text.slice(0, 24));
+      }
+
+      const promptText = text.trim();
+      DOM.promptInput.value = '';
+      DOM.charCounter.textContent = '0 chars';
+
+      const currentSess = state.sessions.find(s => s.id === state.activeSessionId);
+      if (currentSess && currentSess.title.startsWith('Chat ')) {
+        currentSess.title = promptText.slice(0, 24) + (promptText.length > 24 ? '...' : '');
+        saveSessions();
+        renderSessionList();
+        renderTabsBar();
+        updateActiveSessionHeader();
+      }
+
+      const userBubble = createMessageBubble('user');
+      userBubble.setText(promptText);
+
+      const assistantBubble = createMessageBubble('assistant');
+
+      state.isGenerating = true;
+      DOM.sendBtn.classList.add('hidden');
+      DOM.abortBtn.classList.remove('hidden');
+      state.abortController = new AbortController();
+
+      try {
+        const res = await fetch(`/api/session/${encodeURIComponent(state.activeSessionId)}/prompt`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: promptText,
+            agent: state.activeAgent,
+          }),
+          signal: state.abortController.signal,
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          if (res.status === 404 && errData.detail && errData.detail.includes('not found')) {
+            // Self-heal: recreate session and retry prompt automatically
+            showToast('Re-initializing session...', false);
+            await createNewSession(promptText.slice(0, 24));
+            const retryRes = await fetch(`/api/session/${encodeURIComponent(state.activeSessionId)}/prompt`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                text: promptText,
+                agent: state.activeAgent,
+              }),
+              signal: state.abortController.signal,
+            });
+            if (!retryRes.ok) {
+              const retryErr = await retryRes.json().catch(() => ({}));
+              throw new Error(retryErr.detail || `Server error (${retryRes.status})`);
+            }
+            await readSSEStream(retryRes, assistantBubble);
+            return;
+          }
+          throw new Error(errData.detail || `Server error (${res.status})`);
+        }
+
+        await readSSEStream(res, assistantBubble);
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          showToast(err.message, true);
+          assistantBubble.setText(`⚠️ Error: ${err.message}`);
+        }
+      } finally {
+        state.isGenerating = false;
+        state.abortController = null;
+        DOM.sendBtn.classList.remove('hidden');
+        DOM.abortBtn.classList.add('hidden');
+      }
+    }
+
+    async function abortGeneration() {
+      if (!state.isGenerating || !state.activeSessionId) return;
+      try {
+        await fetch(`/api/session/${encodeURIComponent(state.activeSessionId)}/abort`, { method: 'POST' });
+        if (state.abortController) state.abortController.abort();
+      } catch (err) {
+        console.warn('Abort error:', err);
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // Sidebar Toggle
+    // -------------------------------------------------------------------------
+    function toggleSidebar(open) {
+      if (open) {
+        DOM.sidebar.classList.remove('-translate-x-full');
+        DOM.sidebarOverlay.classList.remove('hidden');
+      } else {
+        DOM.sidebar.classList.add('-translate-x-full');
+        DOM.sidebarOverlay.classList.add('hidden');
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // Event Listeners
+    // -------------------------------------------------------------------------
+    DOM.toggleSidebarBtn.addEventListener('click', () => toggleSidebar(true));
+    DOM.closeSidebarBtn.addEventListener('click', () => toggleSidebar(false));
+    DOM.sidebarOverlay.addEventListener('click', () => toggleSidebar(false));
+
+    DOM.newChatBtn.addEventListener('click', () => createNewSession());
+    DOM.resetChatBtn.addEventListener('click', () => createNewSession());
+    DOM.refreshPageBtn.addEventListener('click', async () => {
+      await loadServerInfo();
+      await loadModels();
+      if (state.activeSessionId) {
+        await loadSessionMessages(state.activeSessionId);
+      }
+      showToast('State refreshed');
+    });
+
+    DOM.modelSelect.addEventListener('change', (e) => {
+      if (e.target.value) switchModel(e.target.value);
+    });
+
+    DOM.agentSelect.addEventListener('change', (e) => {
+      state.activeAgent = e.target.value;
+      updateActiveSessionHeader();
+      showToast(`Agent: ${state.activeAgent}`);
+    });
+
+    DOM.abortBtn.addEventListener('click', abortGeneration);
+
+    DOM.promptInput.addEventListener('input', () => {
+      DOM.promptInput.style.height = 'auto';
+      DOM.promptInput.style.height = Math.min(DOM.promptInput.scrollHeight, 160) + 'px';
+      DOM.charCounter.textContent = `${DOM.promptInput.value.length} chars`;
+    });
+
+    DOM.promptInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendPrompt(DOM.promptInput.value);
+      }
+    });
+
+    DOM.chatForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      sendPrompt(DOM.promptInput.value);
+    });
+
+    // Intercept chat link clicks (handle file:/// security boundaries & open external tabs)
+    DOM.chatMessages.addEventListener('click', (e) => {
+      const link = e.target.closest('a');
+      if (!link) return;
+      const href = link.getAttribute('href') || '';
+      if (href.startsWith('file://')) {
+        e.preventDefault();
+        const filePath = href.replace(/^file:\/\//, '');
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(filePath).then(() => {
+            showToast(`Copied path: ${filePath}`);
+          }).catch(() => {
+            showToast(`Path: ${filePath}`);
+          });
+        } else {
+          showToast(`Path: ${filePath}`);
+        }
+      } else if (href.startsWith('http://') || href.startsWith('https://')) {
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+      }
+    });
+
+    document.querySelectorAll('.quick-prompt').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const text = btn.textContent.trim().replace(/^>\s*/, '');
+        DOM.promptInput.value = text;
+        sendPrompt(text);
+      });
+    });
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      await loadServerInfo();
+      await loadModels();
+      await loadAgents();
+
+      try {
+        const stored = localStorage.getItem('adk_sessions');
+        if (stored) state.sessions = JSON.parse(stored);
+        const storedActive = localStorage.getItem('adk_active_session');
+        if (storedActive && state.sessions.some(s => s.id === storedActive)) {
+          state.activeSessionId = storedActive;
+        }
+      } catch (e) {}
+
+      if (!state.activeSessionId || !state.sessions.length) {
+        await createNewSession('Chat 1');
+      } else {
+        renderSessionList();
+        renderTabsBar();
+        updateActiveSessionHeader();
+        loadSessionMessages(state.activeSessionId);
+      }
+    });
+  </script>
+</body>
+</html>

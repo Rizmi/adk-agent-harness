@@ -1,0 +1,68 @@
+{
+  "_comment": "Model catalog for the ADK Agent Harness. .env only names which model to use (ADK_MODEL); all provider details live here. api_key and base_url values reference environment variables as ${VAR}.",
+  "models": {
+    "openai-gpt4o": {
+      "provider": "openai",
+      "model": "openai/gpt-4o",
+      "label": "GPT-4o",
+      "base_url": "https://api.openai.com/v1",
+      "api_key": "${OPENAI_API_KEY}",
+      "temperature": 0.2,
+      "context_limit": 128000,
+      "max_output_tokens": 16384,
+      "transport": "litellm"
+    },
+    "anthropic-sonnet": {
+      "provider": "anthropic",
+      "model": "anthropic/claude-sonnet-4-20250514",
+      "label": "Claude Sonnet 4",
+      "base_url": "https://api.anthropic.com",
+      "api_key": "${ANTHROPIC_API_KEY}",
+      "temperature": 0.2,
+      "context_limit": 200000,
+      "max_output_tokens": 16384,
+      "transport": "litellm"
+    },
+    "gemini-flash": {
+      "provider": "google",
+      "model": "gemini-2.5-flash",
+      "label": "Gemini 2.5 Flash",
+      "base_url": "https://generativelanguage.googleapis.com/v1beta",
+      "api_key": "${GEMINI_API_KEY}",
+      "temperature": 0.2,
+      "context_limit": 128000,
+      "transport": "gemini-rest"
+    },
+    "deepseek-chat": {
+      "provider": "deepseek",
+      "model": "openai/deepseek-chat",
+      "label": "DeepSeek Chat",
+      "base_url": "https://api.deepseek.com/v1",
+      "api_key": "${DEEPSEEK_API_KEY}",
+      "temperature": 0.3,
+      "context_limit": 128000,
+      "transport": "litellm"
+    },
+    "ollama-local": {
+      "provider": "ollama",
+      "model": "openai/qwen2.5-coder:14b",
+      "label": "Local Ollama (OpenAI-compatible)",
+      "base_url": "${OLLAMA_BASE_URL}",
+      "api_key": "${OLLAMA_API_KEY}",
+      "temperature": 0.2,
+      "context_limit": 32768,
+      "transport": "litellm"
+    },
+    "nemotron-ultra": {
+      "provider": "nvidia",
+      "model": "openai/nvidia/nemotron-3-ultra-550b-a55b",
+      "label": "Nemotron 3 Ultra 550B",
+      "base_url": "https://integrate.api.nvidia.com/v1",
+      "api_key": "${NVIDIA_API_KEY}",
+      "temperature": 0.2,
+      "context_limit": 64000,
+      "max_output_tokens": 16384,
+      "transport": "litellm"
+    }
+  }
+}

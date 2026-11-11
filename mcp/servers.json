@@ -1,0 +1,18 @@
+{
+  "_comment": "Optional external MCP servers registry. Local servers in mcp/*/server.py are discovered automatically on SSE starting at MCP_BASE_PORT (8101). Add external stdio or SSE MCP servers under 'mcpServers' below; ${ENV_VAR} placeholders are expanded from .env.",
+  "mcpServers": {
+    "example-stdio": {
+      "disabled": true,
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-everything"],
+      "description": "Example external stdio MCP server (set disabled: false to enable)"
+    },
+    "example-remote-sse": {
+      "disabled": true,
+      "transport": "sse",
+      "url": "http://127.0.0.1:9000/sse",
+      "description": "Example external SSE MCP server (set disabled: false to enable)"
+    }
+  }
+}

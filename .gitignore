@@ -1,0 +1,48 @@
+# Local credentials and environment configuration
+.env
+.env.*
+.env*.local
+!.env.example
+*.token.json
+.token.json
+*.key
+*.pem
+*.pfx
+*.p12
+
+# Runtime state, logs, and generated MCP client configs
+*.log
+mcp/mcp_config_*.json
+*.db
+*.db-wal
+*.db-shm
+*.db.corrupt
+
+# Scratch & generated files (keep directory placeholders)
+tmp/*
+!tmp/.gitkeep
+artifacts/*
+!artifacts/.gitkeep
+workspace/*
+!workspace/.gitkeep
+
+# Virtual environments & package caches
+.venv/
+venv/
+env/
+mcp/**/.venv/
+node_modules/
+
+# Python & test caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Editor & OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
