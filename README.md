@@ -2,6 +2,8 @@
 
 A **lightweight, plug-and-play, headless agent harness** built on [Google ADK](https://google.github.io/adk-docs/).
 
+Plug in any model, any MCP server, and any skill — completely isolated per agent with granular zero-trust permissions. Build as many agents as you want and drive them from any automation pipeline, script, or agentic tool.
+
 **Why this is different from other harnesses:**
 
 - **Headless by design** — no bundled dashboard, no forced UI. It runs as a pure API server (REST + SSE) you can drive from anything: curl, scripts, CI jobs, cron, web apps, or your own frontend.
@@ -59,7 +61,6 @@ Spin up a multi-model, tool-using AI agent server with MCP support, workflow ski
 - **Context compaction** — automatic event summarization at 75% of the model's context limit.
 - **Zero-trust permissions** — default-deny tool access with an `allow` / `ask` / `deny` policy per agent; `ask` tools pause for human approval over the API.
 - **Sandboxed filesystem tools** — the bundled `filesystem` MCP server only reads/writes inside directories you authorize in `.env`.
-- **Live clock injection** — every turn starts with the current date/time in your configured timezone.
 
 ---
 
