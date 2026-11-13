@@ -10,6 +10,7 @@
       "temperature": 0.2,
       "context_limit": 128000,
       "max_output_tokens": 16384,
+      "multimodal": true,
       "transport": "litellm"
     },
     "anthropic-sonnet": {
@@ -21,6 +22,7 @@
       "temperature": 0.2,
       "context_limit": 200000,
       "max_output_tokens": 16384,
+      "multimodal": true,
       "transport": "litellm"
     },
     "gemini-flash": {
@@ -31,6 +33,7 @@
       "api_key": "${GEMINI_API_KEY}",
       "temperature": 0.2,
       "context_limit": 128000,
+      "multimodal": true,
       "transport": "gemini-rest"
     },
     "deepseek-chat": {
@@ -41,6 +44,7 @@
       "api_key": "${DEEPSEEK_API_KEY}",
       "temperature": 0.3,
       "context_limit": 128000,
+      "multimodal": false,
       "transport": "litellm"
     },
     "ollama-local": {
@@ -51,6 +55,7 @@
       "api_key": "${OLLAMA_API_KEY}",
       "temperature": 0.2,
       "context_limit": 32768,
+      "multimodal": false,
       "transport": "litellm"
     },
     "nemotron-ultra": {
@@ -62,6 +67,7 @@
       "temperature": 0.2,
       "context_limit": 64000,
       "max_output_tokens": 16384,
+      "multimodal": false,
       "transport": "litellm"
     }
   }

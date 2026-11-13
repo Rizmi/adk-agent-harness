@@ -17,6 +17,8 @@ from typing import Dict, List, Optional
 
 # ${VAR} references are resolved from the environment (.env).
 _ENV_REF = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+# {file:path} references are resolved from local or opencode secrets.
+_FILE_REF = re.compile(r"^\{file:(.+)\}$")
 
 # How the harness talks to a model.
 #   litellm     - OpenAI-compatible provider through LiteLLM (default)
@@ -42,6 +44,7 @@ class ModelSpec:
     label: str = ""
     context_limit: Optional[int] = None
     max_output_tokens: Optional[int] = None
+    multimodal: bool = False
 
     @property
     def display_name(self) -> str:
@@ -107,6 +110,12 @@ class ModelCatalog:
     def _build_spec(self, name: str, data: dict) -> ModelSpec:
         """Validate one catalog entry and resolve its environment references."""
         temperature = float(data.get("temperature", 0.2))
+        multimodal = bool(data.get("multimodal", False))
+        if not multimodal:
+            caps = data.get("capabilities") or {}
+            inputs = caps.get("input") or []
+            if "image" in inputs:
+                multimodal = True
         return ModelSpec(
             name=name,
             provider=str(data["provider"]).strip(),
@@ -118,10 +127,29 @@ class ModelCatalog:
             label=str(data.get("label", "")).strip(),
             context_limit=data.get("context_limit"),
             max_output_tokens=data.get("max_output_tokens"),
+            multimodal=multimodal,
         )
 
     def _resolve_env(self, value: str, model_name: str, field_name: str) -> str:
-        """Expand ``${VAR}`` references; a missing variable is an error, never empty."""
+        """Expand ``${VAR}`` and ``{file:...}`` references; missing values are errors."""
+        val_trimmed = value.strip()
+        file_match = _FILE_REF.match(val_trimmed)
+        if file_match:
+            rel_path = file_match.group(1).strip()
+            candidates = [
+                self.path.parent / rel_path,
+                Path.home() / ".config" / "opencode" / rel_path,
+            ]
+            for candidate in candidates:
+                if candidate.exists() and candidate.is_file():
+                    content = candidate.read_text(encoding="utf-8").strip()
+                    if content:
+                        return content
+            raise ModelConfigError(
+                f"Model '{model_name}' references file '{rel_path}' for {field_name}, "
+                f"but file was not found."
+            )
+
         def replace(match: re.Match) -> str:
             var = match.group(1)
             resolved = os.environ.get(var, "").strip()
@@ -166,6 +194,13 @@ class ModelCatalog:
                         if var_name not in missing_vars:
                             missing_vars.append(var_name)
 
+            multimodal = bool(data.get("multimodal", False))
+            if not multimodal:
+                caps = data.get("capabilities") or {}
+                inputs = caps.get("input") or []
+                if "image" in inputs:
+                    multimodal = True
+
             items.append({
                 "name": name,
                 "provider": str(data.get("provider", "")).strip(),
@@ -173,6 +208,7 @@ class ModelCatalog:
                 "display_name": str(data.get("label", "")).strip() or str(data.get("model", "")).strip() or name,
                 "configured": configured,
                 "missing_vars": missing_vars,
+                "multimodal": multimodal,
             })
         return items
 
@@ -193,6 +229,12 @@ class ModelCatalog:
             raise ModelConfigError(
                 "Model name is empty. Set ADK_MODEL in .env."
             )
+        if key not in self._raw_entries:
+            for entry_name, data in self._raw_entries.items():
+                m = str(data.get("model", "")).strip()
+                if key == m or (m.startswith("openai/") and key == m[7:]):
+                    key = entry_name
+                    break
         if key not in self._raw_entries:
             raise ModelConfigError(
                 f"Unknown model '{key}'. Available in {self.path.name}: {', '.join(self.names())}."

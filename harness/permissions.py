@@ -103,20 +103,27 @@ class ApprovalRegistry:
 
     def get_pending(self, session_id: Optional[str] = None) -> List[Dict[str, Any]]:
         self._cleanup_expired()
-        return [
-            {
+        res = []
+        for req in self._pending.values():
+            if req.decision is not None or req.consumed or req.is_expired():
+                continue
+            if session_id and req.session_id != session_id:
+                continue
+            resources = []
+            if isinstance(req.args, dict):
+                resources = [f"{k}: {v}" for k, v in req.args.items() if k != "_approval_token"]
+            res.append({
                 "requestId": req.request_id,
                 "sessionId": req.session_id,
                 "agentName": req.agent_name,
                 "tool": req.tool_name,
-                "args": req.args,
+                "action": req.tool_name,
                 "hint": req.hint,
+                "args": req.args,
+                "resources": resources,
                 "createdAt": req.created_at,
-            }
-            for req in self._pending.values()
-            if req.decision is None and not req.consumed
-            and (not session_id or req.session_id == session_id)
-        ]
+            })
+        return res
 
     def resolve_request(self, request_id: str, decision: str) -> Optional["PendingApproval"]:
         self._cleanup_expired()

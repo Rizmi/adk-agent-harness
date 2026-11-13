@@ -10,16 +10,17 @@ import json
 import os
 import secrets
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, Header, HTTPException, Query, Request
+from fastapi import FastAPI, File, Header, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .config import config, reload_env
-from .events import serialize_adk_event
+from .events import CONFIRMATION_FUNCTION_NAME, serialize_adk_event
 from .loader import agent_catalog
 from .mcp.manager import mcp_manager
 from .permissions import approval_registry
@@ -32,6 +33,15 @@ from .sessions import (
 
 # Registry of active session cancellation signals: session_id -> asyncio.Event
 _active_abort_signals: Dict[str, asyncio.Event] = {}
+
+# Per-session locks to serialize concurrent prompt and confirmation turns.
+_session_locks: Dict[str, asyncio.Lock] = {}
+
+
+def _get_session_lock(session_id: str) -> asyncio.Lock:
+    if session_id not in _session_locks:
+        _session_locks[session_id] = asyncio.Lock()
+    return _session_locks[session_id]
 
 
 @asynccontextmanager
@@ -424,22 +434,34 @@ async def get_session_messages(
                         parts.append({"type": "text", "text": p.text})
                     elif getattr(p, "function_call", None):
                         fc = p.function_call
+                        if fc.name == CONFIRMATION_FUNCTION_NAME:
+                            continue
                         cid = getattr(fc, "id", None) or fc.name
                         has_resp = cid in responses
                         # If completed, show complete with output; if still streaming, running; else aborted/incomplete
                         state = "complete" if has_resp else ("running" if is_active else "incomplete")
+                        tool_label = fc.name
+                        tool_input = getattr(fc, "args", {})
+                        if fc.name == "tool_run" and "tool_name" in tool_input:
+                            tool_label = tool_input["tool_name"]
+                            tool_input = tool_input.get("arguments") or {}
+                        elif fc.name == "tool_describe" and "tool_name" in tool_input:
+                            tool_label = f"describe({tool_input['tool_name']})"
+
                         part_dict: Dict[str, Any] = {
                             "type": "tool",
                             "callId": cid,
-                            "tool": fc.name,
+                            "tool": tool_label,
                             "state": state,
-                            "input": getattr(fc, "args", {}),
+                            "input": tool_input,
                         }
                         if has_resp:
                             part_dict["output"] = responses[cid]
                         parts.append(part_dict)
                     elif getattr(p, "function_response", None):
                         fr = p.function_response
+                        if fr.name == CONFIRMATION_FUNCTION_NAME:
+                            continue
                         cid = getattr(fr, "id", None) or fr.name
                         # Only append if not already paired with a call in this turn
                         if not any(part.get("callId") == cid for part in parts):
@@ -582,33 +604,34 @@ async def prompt_session(
     context_limit = config.get_context_limit(req.model)
 
     async def event_generator():
-        try:
-            attachments = []
-            for f in req.files or []:
-                attachments.append({
-                    "path": f.get("uri", "").replace("file://", ""),
-                    "name": f.get("name", "attachment"),
-                })
+        async with _get_session_lock(session_id):
+            try:
+                attachments = []
+                for f in req.files or []:
+                    attachments.append({
+                        "path": f.get("uri", "").replace("file://", ""),
+                        "name": f.get("name", "attachment"),
+                    })
 
-            async for adk_event in run_prompt_stream(
-                session_id=session_id,
-                prompt=req.text or "",
-                agent_name=target_agent,
-                user_id=uid,
-                attachments=attachments,
-                abort_signal=abort_event,
-                model_override=req.model,
-            ):
-                for item in serialize_adk_event(adk_event, context_limit=context_limit):
-                    yield f"data: {json.dumps(item)}\n\n"
+                async for adk_event in run_prompt_stream(
+                    session_id=session_id,
+                    prompt=req.text or "",
+                    agent_name=target_agent,
+                    user_id=uid,
+                    attachments=attachments,
+                    abort_signal=abort_event,
+                    model_override=req.model,
+                ):
+                    for item in serialize_adk_event(adk_event, context_limit=context_limit):
+                        yield f"data: {json.dumps(item)}\n\n"
 
-        except asyncio.CancelledError:
-            yield f"data: {json.dumps({'type': 'delta', 'field': 'text', 'text': '\n[Request aborted by user]'})}\n\n"
-        except Exception as err:
-            yield f"data: {json.dumps({'type': 'error', 'error': str(err)})}\n\n"
-        finally:
-            _active_abort_signals.pop(session_id, None)
-            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            except asyncio.CancelledError:
+                yield f"data: {json.dumps({'type': 'delta', 'field': 'text', 'text': '\n[Request aborted by user]'})}\n\n"
+            except Exception as err:
+                yield f"data: {json.dumps({'type': 'error', 'error': str(err)})}\n\n"
+            finally:
+                _active_abort_signals.pop(session_id, None)
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
     return StreamingResponse(
         event_generator(),
@@ -662,25 +685,26 @@ async def reply_permission(session_id: str, req: ApprovalReplyRequest):
     context_limit = config.get_context_limit(model_override)
 
     async def resume_generator():
-        try:
-            async for adk_event in resume_confirmation_stream(
-                session_id=record.session_id,
-                agent_name=record.agent_name,
-                user_id=record.user_id,
-                confirmed=approved,
-                payload={"request_id": record.request_id},
-                abort_signal=abort_event,
-                model_override=model_override,
-            ):
-                for item in serialize_adk_event(adk_event, context_limit=context_limit):
-                    yield f"data: {json.dumps(item)}\n\n"
-        except asyncio.CancelledError:
-            yield f"data: {json.dumps({'type': 'delta', 'field': 'text', 'text': '\n[Resume aborted by user]'})}\n\n"
-        except Exception as err:
-            yield f"data: {json.dumps({'type': 'error', 'error': str(err)})}\n\n"
-        finally:
-            _active_abort_signals.pop(record.session_id, None)
-            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        async with _get_session_lock(record.session_id):
+            try:
+                async for adk_event in resume_confirmation_stream(
+                    session_id=record.session_id,
+                    agent_name=record.agent_name,
+                    user_id=record.user_id,
+                    confirmed=approved,
+                    payload={"request_id": record.request_id},
+                    abort_signal=abort_event,
+                    model_override=model_override,
+                ):
+                    for item in serialize_adk_event(adk_event, context_limit=context_limit):
+                        yield f"data: {json.dumps(item)}\n\n"
+            except asyncio.CancelledError:
+                yield f"data: {json.dumps({'type': 'delta', 'field': 'text', 'text': '\n[Resume aborted by user]'})}\n\n"
+            except Exception as err:
+                yield f"data: {json.dumps({'type': 'error', 'error': str(err)})}\n\n"
+            finally:
+                _active_abort_signals.pop(record.session_id, None)
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
     return StreamingResponse(
         resume_generator(),
@@ -691,3 +715,24 @@ async def reply_permission(session_id: str, req: ApprovalReplyRequest):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+# -----------------------------------------------------------------------------
+# File Attachments / Uploads
+# -----------------------------------------------------------------------------
+@app.post("/api/upload")
+async def upload_file(file: UploadFile = File(...)):
+    """Upload an attachment and return its local URI for prompt turns."""
+    upload_dir = Path("tmp/attachments")
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    safe_filename = Path(file.filename or "upload").name
+    token = secrets.token_hex(6)
+    dest_file = upload_dir / f"{token}_{safe_filename}"
+    content = await file.read()
+    dest_file.write_bytes(content)
+    return {
+        "name": safe_filename,
+        "uri": f"file://{dest_file.resolve()}",
+        "size": len(content),
+        "mime": file.content_type,
+    }

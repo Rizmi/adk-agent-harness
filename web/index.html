@@ -281,6 +281,8 @@
       <div class="border-t border-zinc-800 bg-zinc-950 p-3 flex-shrink-0">
         <form id="chat-form" class="max-w-4xl mx-auto space-y-2">
           <div class="border border-zinc-800 bg-zinc-900 focus-within:border-zinc-600 transition">
+            <!-- Attachment preview strip -->
+            <div id="attachment-preview-bar" class="hidden px-3 py-1.5 border-b border-zinc-850 flex flex-wrap gap-1.5 bg-black/60 text-[10px] font-mono"></div>
             <textarea
               id="prompt-input"
               rows="2"
@@ -288,7 +290,18 @@
               class="w-full bg-transparent text-xs text-zinc-100 placeholder-zinc-600 p-3 focus:outline-none resize-none font-mono"
             ></textarea>
             <div class="px-3 py-1.5 border-t border-zinc-850 flex items-center justify-between text-[10px] font-mono text-zinc-500 bg-black/40">
-              <span id="char-counter">0 chars</span>
+              <div class="flex items-center gap-2">
+                <input type="file" id="file-attachment-input" multiple class="hidden" accept="image/*,text/*,.pdf,.md,.py,.json,.txt,.yaml,.csv">
+                <button
+                  type="button"
+                  id="attach-file-btn"
+                  class="px-2 py-0.5 bg-zinc-850 hover:bg-zinc-800 border border-zinc-750 text-zinc-300 text-[10px] font-mono flex items-center gap-1 cursor-pointer transition"
+                  title="Attach file or image"
+                >
+                  <i class="fa-solid fa-paperclip text-[9px]"></i> Attach
+                </button>
+                <span id="char-counter">0 chars</span>
+              </div>
               <div class="flex items-center gap-2">
                 <button
                   type="button"
@@ -332,6 +345,7 @@
       isGenerating: false,
       abortController: null,
       sessionUsageMap: new Map(),
+      pendingAttachments: [],
     };
 
     const DOM = {
@@ -357,6 +371,9 @@
       sendBtn: document.getElementById('send-btn'),
       abortBtn: document.getElementById('abort-btn'),
       charCounter: document.getElementById('char-counter'),
+      attachFileBtn: document.getElementById('attach-file-btn'),
+      fileAttachmentInput: document.getElementById('file-attachment-input'),
+      attachmentPreviewBar: document.getElementById('attachment-preview-bar'),
       toast: document.getElementById('toast'),
       toastMsg: document.getElementById('toast-msg'),
       toastIcon: document.getElementById('toast-icon'),
@@ -697,7 +714,22 @@
 
         return {
           container,
-          setText(txt) { textContent.textContent = txt; },
+          setText(txt, attachments) {
+            textContent.textContent = txt;
+            if (attachments && attachments.length > 0) {
+              const attachDiv = document.createElement('div');
+              attachDiv.className = 'mt-2 pt-2 border-t border-zinc-800 flex flex-wrap gap-2 text-xs font-mono';
+              attachments.forEach(att => {
+                const chip = document.createElement('div');
+                chip.className = 'px-2 py-1 bg-zinc-950 border border-zinc-800 text-zinc-300 flex items-center gap-1.5 text-[10px]';
+                const isImg = att.mime && att.mime.startsWith('image/');
+                const iconClass = isImg ? 'fa-image text-emerald-400' : 'fa-file text-zinc-400';
+                chip.innerHTML = `<i class="fa-solid ${iconClass} text-[9px]"></i><span>${escapeHtml(att.name || 'file')}</span>`;
+                attachDiv.appendChild(chip);
+              });
+              container.appendChild(attachDiv);
+            }
+          },
         };
       }
 
@@ -951,6 +983,24 @@
             }
           });
         });
+
+        // Restore any pending approval cards for this session
+        try {
+          const permRes = await fetch(`/api/permissions?sessionId=${encodeURIComponent(sessionId)}`);
+          if (permRes.ok) {
+            const permData = await permRes.json();
+            const pendingList = permData.pending || [];
+            if (pendingList.length > 0) {
+              DOM.welcomeCard.classList.add('hidden');
+              const permBubble = createMessageBubble('assistant');
+              pendingList.forEach(perm => {
+                permBubble.showPermission(perm);
+              });
+            }
+          }
+        } catch (permErr) {
+          console.warn('Failed to load pending permissions:', permErr);
+        }
       } catch (err) {
         console.warn('Failed to load session messages:', err);
       }
@@ -1014,19 +1064,25 @@
     }
 
     async function sendPrompt(text) {
-      if (!text || !text.trim() || state.isGenerating) return;
+      if ((!text || !text.trim()) && (!state.pendingAttachments || state.pendingAttachments.length === 0)) return;
+      if (state.isGenerating) return;
 
       if (!state.activeSessionId) {
-        await createNewSession(text.slice(0, 24));
+        await createNewSession((text || 'Attachment').slice(0, 24));
       }
 
-      const promptText = text.trim();
+      const promptText = (text || '').trim();
+      const attachmentsToSend = [...state.pendingAttachments];
+      state.pendingAttachments = [];
+      renderAttachmentPreviews();
+
       DOM.promptInput.value = '';
       DOM.charCounter.textContent = '0 chars';
 
       const currentSess = state.sessions.find(s => s.id === state.activeSessionId);
       if (currentSess && currentSess.title.startsWith('Chat ')) {
-        currentSess.title = promptText.slice(0, 24) + (promptText.length > 24 ? '...' : '');
+        const titleSource = promptText || (attachmentsToSend[0] ? attachmentsToSend[0].name : 'Turn');
+        currentSess.title = titleSource.slice(0, 24) + (titleSource.length > 24 ? '...' : '');
         saveSessions();
         renderSessionList();
         renderTabsBar();
@@ -1034,7 +1090,7 @@
       }
 
       const userBubble = createMessageBubble('user');
-      userBubble.setText(promptText);
+      userBubble.setText(promptText, attachmentsToSend);
 
       const assistantBubble = createMessageBubble('assistant');
 
@@ -1050,6 +1106,8 @@
           body: JSON.stringify({
             text: promptText,
             agent: state.activeAgent,
+            model: state.activeModel,
+            files: attachmentsToSend,
           }),
           signal: state.abortController.signal,
         });
@@ -1059,13 +1117,15 @@
           if (res.status === 404 && errData.detail && errData.detail.includes('not found')) {
             // Self-heal: recreate session and retry prompt automatically
             showToast('Re-initializing session...', false);
-            await createNewSession(promptText.slice(0, 24));
+            await createNewSession((promptText || 'Attachment').slice(0, 24));
             const retryRes = await fetch(`/api/session/${encodeURIComponent(state.activeSessionId)}/prompt`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 text: promptText,
                 agent: state.activeAgent,
+                model: state.activeModel,
+                files: attachmentsToSend,
               }),
               signal: state.abortController.signal,
             });
@@ -1145,6 +1205,68 @@
     });
 
     DOM.abortBtn.addEventListener('click', abortGeneration);
+
+    function renderAttachmentPreviews() {
+      DOM.attachmentPreviewBar.innerHTML = '';
+      if (!state.pendingAttachments || state.pendingAttachments.length === 0) {
+        DOM.attachmentPreviewBar.classList.add('hidden');
+        return;
+      }
+      DOM.attachmentPreviewBar.classList.remove('hidden');
+      state.pendingAttachments.forEach((att, idx) => {
+        const chip = document.createElement('div');
+        chip.className = 'px-2 py-0.5 bg-zinc-900 border border-zinc-800 text-zinc-300 flex items-center gap-1.5 text-[10px] font-mono';
+        const isImg = att.mime && att.mime.startsWith('image/');
+        const iconClass = isImg ? 'fa-image text-emerald-400' : 'fa-file text-zinc-400';
+        chip.innerHTML = `
+          <i class="fa-solid ${iconClass} text-[9px]"></i>
+          <span class="max-w-[140px] truncate" title="${escapeHtml(att.name)}">${escapeHtml(att.name)}</span>
+          <button type="button" class="remove-att-btn text-zinc-500 hover:text-rose-400 ml-1 cursor-pointer">✕</button>
+        `;
+        chip.querySelector('.remove-att-btn').addEventListener('click', () => {
+          state.pendingAttachments.splice(idx, 1);
+          renderAttachmentPreviews();
+        });
+        DOM.attachmentPreviewBar.appendChild(chip);
+      });
+    }
+
+    DOM.attachFileBtn.addEventListener('click', () => {
+      DOM.fileAttachmentInput.click();
+    });
+
+    DOM.fileAttachmentInput.addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files || []);
+      if (files.length === 0) return;
+      DOM.attachFileBtn.disabled = true;
+      DOM.attachFileBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-[9px]"></i> Uploading...';
+
+      for (const f of files) {
+        try {
+          const formData = new FormData();
+          formData.append('file', f);
+          const res = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData,
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          state.pendingAttachments.push({
+            name: data.name || f.name,
+            uri: data.uri,
+            mime: data.mime || f.type,
+            size: data.size || f.size,
+          });
+        } catch (err) {
+          showToast(`Upload failed for ${f.name}: ${err.message}`, true);
+        }
+      }
+
+      DOM.attachFileBtn.disabled = false;
+      DOM.attachFileBtn.innerHTML = '<i class="fa-solid fa-paperclip text-[9px]"></i> Attach';
+      DOM.fileAttachmentInput.value = '';
+      renderAttachmentPreviews();
+    });
 
     DOM.promptInput.addEventListener('input', () => {
       DOM.promptInput.style.height = 'auto';
